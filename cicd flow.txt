@@ -1,0 +1,38 @@
+node('master')
+{
+    stage('download the java code')
+    {
+        git 'https://github.com/intelliqittrainings/maven.git'
+    }
+    stage('build the code')
+    {
+        sh 'mvn package'
+    }
+    stage("Build the Docker image")
+    {
+        sh 'cp /home/ubuntu/.jenkins/workspace/full/webapp/target/webapp.war  ~'
+        
+        sh 'echo "COPY webapp.war /usr/local/tomee/webapps/myapp.war" >> /home/ubuntu/dockerfile'
+        sh 'sudo docker build --no-cache -t shashu07/mytomee7 -f /home/ubuntu/dockerfile /home/ubuntu'
+    }
+    stage('push docker image to registery')
+    {
+        sh 'sudo docker push shashu07/mytomee7'
+    }
+    stage('Deply the docker container into qa servers using ansible')
+    {
+        sh 'ssh ubuntu@172.31.42.64 ansible-playbook tomcat-docker-app.yml -b'
+    }
+    stage('Download the selenium test scripts and test the application')
+    {
+        git 'https://github.com/intelliqittrainings/FunctionalTesting.git'
+        sh 'java -jar /home/ubuntu/.jenkins/workspace/full/testing.jar'
+    }
+    stage('deploy customised docker into kubernets cluster in prod env')
+    {
+        sh '''ssh centos@172.31.31.117 kubectl apply -f /home/centos/deployment.yml
+ssh centos@172.31.31.117 kubectl apply -f /home/centos/service.yml'''
+    }
+    
+    
+}
